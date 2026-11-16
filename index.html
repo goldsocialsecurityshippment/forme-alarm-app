@@ -66,10 +66,10 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:10px}
    <label class="switch"><input id="notifToggle" type="checkbox" checked> Browser notification</label>
   </div>
   <div class="grid" style="margin-top:14px">
-   <div><label for="voiceStyle">Assistant voice</label><select id="voiceStyle"><option value="female">Female voice</option><option value="male">Male voice</option><option value="default">Device default voice</option></select></div>
+   <div><label for="voiceStyle">Assistant voice</label><select id="voiceStyle"><option value="deep">Deep romantic gentleman</option><option value="male">Male voice</option><option value="female">Female voice</option><option value="default">Device default voice</option></select></div>
    <div style="display:flex;align-items:end"><button class="secondary" id="testVoiceBtn" type="button" style="width:100%">Test selected voice</button></div>
   </div>
-  <p class="note" id="voiceStatus">Choose how you want FORME to speak. Available voices depend on your iPhone.</p>
+  <p class="note" id="voiceStatus">Deep romantic gentleman uses a slower pace and lower pitch. A genuinely husky or breathy texture depends on the voice installed on your iPhone.</p>
   <p class="note" style="margin-top:12px">For this starter version, keep this page open and your phone/browser allowed to send notifications. Browser alarms may not fire reliably if the page is closed or the phone restricts background activity.</p>
  </section>
 
@@ -177,19 +177,21 @@ $("enableBtn").onclick=async()=>{
 };
 let availableVoices=[];
 const voiceStyle=$("voiceStyle");
-voiceStyle.value=localStorage.getItem("formeVoiceStyle")||"female";
-function loadVoices(){if(!("speechSynthesis"in window))return;availableVoices=speechSynthesis.getVoices()||[];if(availableVoices.length){$("voiceStatus").textContent=availableVoices.length+" voices available on this device. Choose male, female or device default.";}}
+voiceStyle.value=localStorage.getItem("formeVoiceStyle")||"deep";
+function loadVoices(){if(!("speechSynthesis"in window))return;availableVoices=speechSynthesis.getVoices()||[];if(availableVoices.length){$("voiceStatus").textContent=availableVoices.length+" voices available. Choose the deep romantic style, another male or female voice, or device default.";}}
 if("speechSynthesis"in window){loadVoices();speechSynthesis.onvoiceschanged=loadVoices;}
 voiceStyle.onchange=()=>{localStorage.setItem("formeVoiceStyle",voiceStyle.value);};
 function selectedVoice(){
  if(voiceStyle.value==="default")return null;
  const female=/samantha|karen|moira|tessa|ava|zoe|victoria|susan|allison|siri.*female|female/i;
- const male=/alex|daniel|fred|tom|rishi|aaron|jorge|thomas|siri.*male|male/i;
+ const male=/alex|daniel|fred|tom|rishi|aaron|jorge|thomas|arthur|gordon|lee|oliver|nathan|siri.*male|male/i;
  const pattern=voiceStyle.value==="female"?female:male;
- return availableVoices.find(v=>pattern.test(v.name))||null;
+ const english=availableVoices.filter(v=>/^en([_-]|$)/i.test(v.lang));
+ const pool=english.length?english:availableVoices;
+ return pool.find(v=>pattern.test(v.name))||null;
 }
-function speak(text){if($("voiceToggle").checked&&"speechSynthesis"in window){speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(text);u.rate=.92;u.pitch=1;const voice=selectedVoice();if(voice)u.voice=voice;else if(voiceStyle.value!=="default")$("voiceStatus").textContent="Your device did not expose a clearly labelled "+voiceStyle.value+" voice. FORME is using the device's default voice.";speechSynthesis.speak(u)}}
-$("testVoiceBtn").onclick=()=>{loadVoices();speak("Hey baby, this is your FORME assistant. Your selected voice is ready.");};
+function speak(text){if($("voiceToggle").checked&&"speechSynthesis"in window){speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(text);const deep=voiceStyle.value==="deep";u.rate=deep?.86:.92;u.pitch=deep?.78:1;u.volume=1;const voice=selectedVoice();if(voice)u.voice=voice;else if(voiceStyle.value!=="default")$("voiceStatus").textContent="A clearly labelled "+voiceStyle.value+" voice was not found. FORME is using the closest voice available on this iPhone.";speechSynthesis.speak(u)}}
+$("testVoiceBtn").onclick=()=>{loadVoices();speak("Hey baby... good morning. Take your time, sweetheart. Your FORME assistant is right here.");};
 function soundStart(){
  if(!$("soundToggle").checked)return;
  try{audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)();audioCtx.resume();
