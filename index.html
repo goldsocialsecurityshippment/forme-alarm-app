@@ -156,6 +156,8 @@ function editAlarm(id){
 $("addForm").onsubmit=e=>{e.preventDefault();const time=$("newTime").value,title=$("newTitle").value.trim();if(!title)return;alarms.push({id:Date.now(),time,title,days:$("newDays").checked?"week":"all",enabled:true});save();render();$("newTitle").value=""};
 $("resetBtn").onclick=()=>{if(confirm("Restore the original routine? This replaces your edits.")){alarms=defaults.map((a,i)=>({...a,id:i+1,enabled:true}));save();render()}};
 $("enableBtn").onclick=async()=>{
+ // Start voice during the tap itself; iOS may block speech first requested after an awaited permission prompt.
+ if ("speechSynthesis" in window) { speechSynthesis.cancel(); const readyVoice = new SpeechSynthesisUtterance("FORME routine assistant is ready. Voice announcements are on."); readyVoice.rate = .92; readyVoice.pitch = 1; speechSynthesis.speak(readyVoice); }
  if (!("Notification" in window)) { $("permissionStatus").textContent = "Notifications are not available in this browser."; }
  else {
   try {
@@ -165,7 +167,6 @@ $("enableBtn").onclick=async()=>{
    if (p === "granted" && "serviceWorker" in navigator) { const reg = await navigator.serviceWorker.ready; await reg.showNotification("FORME Routine", { body: "Notifications are enabled on this device.", tag: "forme-test", icon: "./icon.svg" }); }
   } catch (e) { $("permissionStatus").textContent = "Could not enable notifications. Open the installed app over HTTPS and try again."; }
  }
- if("speechSynthesis" in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance("FORME routine assistant is ready. Your alarms are enabled.");speechSynthesis.speak(u)}
 };
 function speak(text){if($("voiceToggle").checked&&"speechSynthesis"in window){speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(text);u.rate=.92;u.pitch=1;speechSynthesis.speak(u)}}
 function soundStart(){
