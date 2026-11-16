@@ -69,8 +69,19 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:10px}
    <div><label for="voiceStyle">Assistant voice</label><select id="voiceStyle"><option value="deep">Deep romantic gentleman</option><option value="male">Male voice</option><option value="female">Female voice</option><option value="default">Device default voice</option></select></div>
    <div style="display:flex;align-items:end"><button class="secondary" id="testVoiceBtn" type="button" style="width:100%">Test selected voice</button></div>
   </div>
+  <div style="margin-top:10px"><label for="voiceChoice">Choose a specific installed voice (optional)</label><select id="voiceChoice"><option value="">Automatic voice for selected style</option></select></div>
   <p class="note" id="voiceStatus">Deep romantic gentleman uses a slower pace and lower pitch. A genuinely husky or breathy texture depends on the voice installed on your iPhone.</p>
   <p class="note" style="margin-top:12px">For this starter version, keep this page open and your phone/browser allowed to send notifications. Browser alarms may not fire reliably if the page is closed or the phone restricts background activity.</p>
+ </section>
+
+ <section class="panel">
+  <div class="row"><strong>How should FORME talk to you?</strong><span class="status">Your personal speaking preferences</span></div>
+  <div class="grid" style="margin-top:12px">
+   <div><label for="callName">What should FORME call you?</label><input id="callName" maxlength="32" placeholder="e.g. baby, sweetheart, or your name"></div>
+   <div><label for="addressStyle">How should it speak to you?</label><select id="addressStyle"><option value="romantic">Soft, romantic and affectionate</option><option value="gentle">Gentle and reassuring</option><option value="coach">Encouraging and motivating</option><option value="simple">Natural and straightforward</option></select></div>
+  </div>
+  <p class="note" id="addressPreview" style="margin-top:10px">Preview: Hey baby... it's time to take a shower and get ready. Take your time, sweetheart.</p>
+  <button class="secondary small" id="testAddressBtn" type="button" style="margin-top:8px">Preview how FORME will address me</button>
  </section>
 
  <section class="panel">
@@ -178,10 +189,25 @@ $("enableBtn").onclick=async()=>{
 let availableVoices=[];
 const voiceStyle=$("voiceStyle");
 voiceStyle.value=localStorage.getItem("formeVoiceStyle")||"deep";
-function loadVoices(){if(!("speechSynthesis"in window))return;availableVoices=speechSynthesis.getVoices()||[];if(availableVoices.length){$("voiceStatus").textContent=availableVoices.length+" voices available. Choose the deep romantic style, another male or female voice, or device default.";}}
+function loadVoices(){if(!("speechSynthesis"in window))return;availableVoices=speechSynthesis.getVoices()||[];const choice=$("voiceChoice");if(choice){const previous=choice.value;choice.innerHTML='<option value="">Automatic voice for selected style</option>';availableVoices.forEach((v,i)=>{const o=document.createElement("option");o.value=String(i);o.textContent=v.name+" ("+v.lang+")";choice.append(o)});if(previous&&Number(previous)<availableVoices.length)choice.value=previous;}if(availableVoices.length){$("voiceStatus").textContent=availableVoices.length+" installed voices detected. You can choose one above, or let FORME select a voice based on the four voice styles.";}}
 if("speechSynthesis"in window){loadVoices();speechSynthesis.onvoiceschanged=loadVoices;}
-voiceStyle.onchange=()=>{localStorage.setItem("formeVoiceStyle",voiceStyle.value);};
+voiceStyle.onchange=()=>{localStorage.setItem("formeVoiceStyle",voiceStyle.value);if($("voiceChoice"))$("voiceChoice").value="";};
+const callName=$("callName"),addressStyle=$("addressStyle");
+callName.value=localStorage.getItem("formeCallName")||"baby";addressStyle.value=localStorage.getItem("formeAddressStyle")||"romantic";
+function saveAddressPrefs(){localStorage.setItem("formeCallName",callName.value.trim()||"baby");localStorage.setItem("formeAddressStyle",addressStyle.value);updateAddressPreview();}
+function addressWord(){return callName.value.trim()||"baby";}
+function makeAnnouncement(a){
+ const name=addressWord(),style=addressStyle.value,title=(a.title||"your next activity").replace(/^time to /i,"").replace(/^it's time to /i,"").replace(/^prepare and /i,"");
+ if(a.message){return a.message.replace(/\bbaby\b/gi,name).replace(/\{name\}/gi,name);}
+ if(style==="simple")return "It's time to "+title.toLowerCase()+". Let's get started.";
+ if(style==="coach")return "Hey "+name+"! It's time to "+title.toLowerCase()+". You've got this. One step at a time.";
+ if(style==="gentle")return "Hey "+name+"... it's time to "+title.toLowerCase()+". Take a breath and ease into it. You've got this.";
+ return "Hey "+name+"... it's time to "+title.toLowerCase()+". Take your time, sweetheart. Let's make today a good one.";
+}
+function updateAddressPreview(){const sample={title:"Time to shower and get ready"};$("addressPreview").textContent="Preview: "+makeAnnouncement(sample);}
+callName.oninput=saveAddressPrefs;addressStyle.onchange=saveAddressPrefs;
 function selectedVoice(){
+ const specific=$("voiceChoice")&&$("voiceChoice").value;if(specific!==""&&availableVoices[Number(specific)])return availableVoices[Number(specific)];
  if(voiceStyle.value==="default")return null;
  const female=/samantha|karen|moira|tessa|ava|zoe|victoria|susan|allison|siri.*female|female/i;
  const male=/alex|daniel|fred|tom|rishi|aaron|jorge|thomas|arthur|gordon|lee|oliver|nathan|siri.*male|male/i;
@@ -191,7 +217,8 @@ function selectedVoice(){
  return pool.find(v=>pattern.test(v.name))||null;
 }
 function speak(text){if($("voiceToggle").checked&&"speechSynthesis"in window){speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(text);const deep=voiceStyle.value==="deep";u.rate=deep?.86:.92;u.pitch=deep?.78:1;u.volume=1;const voice=selectedVoice();if(voice)u.voice=voice;else if(voiceStyle.value!=="default")$("voiceStatus").textContent="A clearly labelled "+voiceStyle.value+" voice was not found. FORME is using the closest voice available on this iPhone.";speechSynthesis.speak(u)}}
-$("testVoiceBtn").onclick=()=>{loadVoices();speak("Hey baby... good morning. Take your time, sweetheart. Your FORME assistant is right here.");};
+$("testVoiceBtn").onclick=()=>{loadVoices();speak("Hey "+addressWord()+"... good morning. Take your time. Your FORME assistant is right here.");};
+$("testAddressBtn").onclick=()=>{saveAddressPrefs();speak(makeAnnouncement({title:"Time to shower and get ready"}));};
 function soundStart(){
  if(!$("soundToggle").checked)return;
  try{audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)();audioCtx.resume();
@@ -202,9 +229,9 @@ function soundStart(){
 function soundStop(){if(ringInterval){clearInterval(ringInterval);ringInterval=null}if(audioCtx){audioCtx.close().catch(()=>{});audioCtx=null}}
 async function trigger(a){
  activeAlarm=a;$("ringTime").textContent=fmt(a.time);$("ringTitle").textContent=a.title;$("ringOverlay").style.display="flex";
- soundStart();speak(a.message||a.title);
+ soundStart();const announcement=makeAnnouncement(a);speak(announcement);
  if($("notifToggle").checked&&"Notification"in window&&Notification.permission==="granted"){
-  try { if ("serviceWorker" in navigator) { const reg = await navigator.serviceWorker.ready; await reg.showNotification("FORME Routine", { body: a.message||a.title, tag: "forme-" + a.id, icon: "./icon.svg" }); } } catch(e) {}
+  try { if ("serviceWorker" in navigator) { const reg = await navigator.serviceWorker.ready; await reg.showNotification("FORME Routine", { body: announcement, tag: "forme-" + a.id, icon: "./icon.svg" }); } } catch(e) {}
  }
 }
 function dismiss(done){soundStop();if("speechSynthesis"in window)speechSynthesis.cancel();$("ringOverlay").style.display="none";if(done&&activeAlarm){activeAlarm.completedToday=true;save();render()}activeAlarm=null}
@@ -217,7 +244,7 @@ function tick(){
  alarms.forEach(a=>{if(a.enabled&&isDayAllowed(a,day)&&a.time===`${hh}:${mm}`&&!firedKeys.has(key+"-"+a.id)){firedKeys.add(key+"-"+a.id);trigger(a)}});
 }
 if("Notification"in window&&Notification.permission==="granted")$("permissionStatus").textContent="Notifications already enabled";
-render();tick();setInterval(tick,15000);
+updateAddressPreview();render();tick();setInterval(tick,15000);
 </script>
 </body>
 </html>
