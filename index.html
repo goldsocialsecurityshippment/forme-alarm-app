@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#171717">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FORME Routine">
+<link rel="manifest" href="./manifest.json">
 <title>FORME Daily Routine</title>
 <style>
 :root{--paper:#f6f3ee;--ink:#171717;--muted:#77736e;--line:#e2ddd6;--accent:#d9a8ad;--white:#fff}
@@ -152,8 +156,15 @@ function editAlarm(id){
 $("addForm").onsubmit=e=>{e.preventDefault();const time=$("newTime").value,title=$("newTitle").value.trim();if(!title)return;alarms.push({id:Date.now(),time,title,days:$("newDays").checked?"week":"all",enabled:true});save();render();$("newTitle").value=""};
 $("resetBtn").onclick=()=>{if(confirm("Restore the original routine? This replaces your edits.")){alarms=defaults.map((a,i)=>({...a,id:i+1,enabled:true}));save();render()}};
 $("enableBtn").onclick=async()=>{
- if("Notification" in window){try{const p=await Notification.requestPermission();$("permissionStatus").textContent=p==="granted"?"Notifications enabled":"Notification permission: "+p}catch(e){$("permissionStatus").textContent="Notifications unavailable"}}
- else $("permissionStatus").textContent="This browser does not support notifications";
+ if (!("Notification" in window)) { $("permissionStatus").textContent = "Notifications are not available in this browser."; }
+ else {
+  try {
+   if ("serviceWorker" in navigator) { await navigator.serviceWorker.register("./service-worker.js"); await navigator.serviceWorker.ready; }
+   const p = await Notification.requestPermission();
+   $("permissionStatus").textContent = p === "granted" ? "Notification permission enabled on this device" : "Notification permission: " + p;
+   if (p === "granted" && "serviceWorker" in navigator) { const reg = await navigator.serviceWorker.ready; await reg.showNotification("FORME Routine", { body: "Notifications are enabled on this device.", tag: "forme-test", icon: "./icon.svg" }); }
+  } catch (e) { $("permissionStatus").textContent = "Could not enable notifications. Open the installed app over HTTPS and try again."; }
+ }
  if("speechSynthesis" in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance("FORME routine assistant is ready. Your alarms are enabled.");speechSynthesis.speak(u)}
 };
 function speak(text){if($("voiceToggle").checked&&"speechSynthesis"in window){speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(text);u.rate=.92;u.pitch=1;speechSynthesis.speak(u)}}
@@ -165,11 +176,11 @@ function soundStart(){
  }catch(e){}
 }
 function soundStop(){if(ringInterval){clearInterval(ringInterval);ringInterval=null}if(audioCtx){audioCtx.close().catch(()=>{});audioCtx=null}}
-function trigger(a){
+async function trigger(a){
  activeAlarm=a;$("ringTime").textContent=fmt(a.time);$("ringTitle").textContent=a.title;$("ringOverlay").style.display="flex";
  soundStart();speak(a.title);
  if($("notifToggle").checked&&"Notification"in window&&Notification.permission==="granted"){
-  try{new Notification("FORME Routine",{body:a.title,tag:"forme-"+a.id})}catch(e){}
+  try { if ("serviceWorker" in navigator) { const reg = await navigator.serviceWorker.ready; await reg.showNotification("FORME Routine", { body: a.title, tag: "forme-" + a.id, icon: "./icon.svg" }); } } catch(e) {}
  }
 }
 function dismiss(done){soundStop();if("speechSynthesis"in window)speechSynthesis.cancel();$("ringOverlay").style.display="none";if(done&&activeAlarm){activeAlarm.completedToday=true;save();render()}activeAlarm=null}
