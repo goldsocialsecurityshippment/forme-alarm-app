@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#171717">
+<title>FORME Daily Routine</title>
+<style>
+:root{--paper:#f6f3ee;--ink:#171717;--muted:#77736e;--line:#e2ddd6;--accent:#d9a8ad;--white:#fff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{background:var(--ink);color:white;padding:24px 20px 28px}
+.top{max-width:850px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.brand{font-size:12px;letter-spacing:.22em;font-weight:800}
+.tag{font-size:11px;color:#c9c4bd;letter-spacing:.1em}
+.hero{max-width:850px;margin:22px auto 0}
+.hero h1{font-size:clamp(28px,6vw,42px);line-height:1.05;margin:0 0 8px;letter-spacing:-.04em}
+.hero p{color:#c9c4bd;margin:0;font-size:14px}
+main{max-width:850px;margin:20px auto;padding:0 14px 36px}
+.panel{background:white;border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.status{font-size:12px;color:var(--muted)}
+button,.btn{border:0;border-radius:12px;background:var(--ink);color:white;padding:11px 14px;font-weight:700;cursor:pointer;font:inherit;font-size:13px}
+button.secondary{background:#eee9e3;color:var(--ink)}
+button.pink{background:var(--accent);color:var(--ink)}
+button.small{padding:7px 10px;font-size:12px}
+input,select{font:inherit;border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff;color:var(--ink);width:100%}
+label{font-size:12px;color:var(--muted);display:block;margin-bottom:5px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.alarm-list{display:flex;flex-direction:column;gap:9px}
+.alarm{display:grid;grid-template-columns:76px 1fr auto;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);border-radius:14px}
+.time{font-size:18px;font-weight:800;letter-spacing:-.03em}
+.activity{font-weight:700;font-size:14px}
+.note{font-size:12px;color:var(--muted);margin-top:3px}
+.alarm.done{opacity:.5;background:#f5f4f2}
+.alarm.done .activity{text-decoration:line-through}
+.switch{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.switch input{width:auto}
+footer{text-align:center;color:var(--muted);font-size:11px;padding:10px}
+#ringOverlay{display:none;position:fixed;inset:0;background:rgba(23,23,23,.86);z-index:9;align-items:center;justify-content:center;padding:18px}
+.ringbox{background:var(--paper);border-radius:24px;padding:28px 22px;max-width:420px;width:100%;text-align:center}
+.ringbox .clock{font-size:42px;font-weight:900;letter-spacing:-.05em}
+.ringbox h2{font-size:24px;margin:12px 0}
+.ringbox p{color:var(--muted)}
+@media(max-width:520px){.alarm{grid-template-columns:66px 1fr auto;gap:8px}.time{font-size:16px}.grid{grid-template-columns:1fr}.tag{display:none}}
+</style>
+</head>
+<body>
+<header>
+ <div class="top"><div class="brand">FORME <span style="font-weight:400">/ ROUTINE</span></div><div class="tag">YOUR PERSONAL DAILY ASSISTANT</div></div>
+ <div class="hero"><h1>Move well.<br>Live fully.</h1><p>Your routine, on time. Adjust your schedule whenever life changes.</p></div>
+</header>
+<main>
+ <section class="panel">
+  <div class="row">
+   <div><strong>Alarm settings</strong><div class="status" id="permissionStatus">Notifications not enabled yet</div></div>
+   <button id="enableBtn" class="pink">Enable notifications & voice</button>
+  </div>
+  <div class="row" style="margin-top:14px">
+   <label class="switch"><input id="voiceToggle" type="checkbox" checked> Speak activity aloud</label>
+   <label class="switch"><input id="soundToggle" type="checkbox" checked> Ring alarm sound</label>
+   <label class="switch"><input id="notifToggle" type="checkbox" checked> Browser notification</label>
+  </div>
+  <p class="note" style="margin-top:12px">For this starter version, keep this page open and your phone/browser allowed to send notifications. Browser alarms may not fire reliably if the page is closed or the phone restricts background activity.</p>
+ </section>
+
+ <section class="panel">
+  <div class="row"><strong>Add an activity</strong><span class="status">Personalize your timetable</span></div>
+  <form id="addForm" style="margin-top:12px">
+   <div class="grid">
+    <div><label for="newTime">Time</label><input id="newTime" type="time" required value="20:00"></div>
+    <div><label for="newTitle">Activity announcement</label><input id="newTitle" required placeholder="e.g. Time for your evening walk"></div>
+   </div>
+   <div class="row" style="margin-top:10px"><label class="switch"><input id="newDays" type="checkbox" checked> Weekdays (Mon–Fri)</label><button class="pink" type="submit">+ Add alarm</button></div>
+  </form>
+ </section>
+
+ <section class="panel">
+  <div class="row" style="margin-bottom:12px"><strong>Today's timetable</strong><div class="row"><button class="secondary small" id="testBtn">Test alarm</button><button class="secondary small" id="resetBtn">Reset schedule</button></div></div>
+  <div class="alarm-list" id="alarmList"></div>
+ </section>
+ <footer>FORME DAILY ROUTINE • A simple personal prototype</footer>
+</main>
+
+<div id="ringOverlay" role="dialog" aria-modal="true">
+ <div class="ringbox">
+  <div class="clock" id="ringTime">00:00</div>
+  <h2 id="ringTitle">Time for your activity</h2>
+  <p>Pause what you're doing. It's time to take care of yourself.</p>
+  <div class="row" style="justify-content:center;margin-top:20px">
+   <button class="secondary" id="stopSoundBtn">Stop sound</button>
+   <button class="pink" id="completeBtn">Done ✓</button>
+  </div>
+ </div>
+</div>
+<script>
+const defaults=[
+ {time:"05:15",title:"Wake up, pray and read the Bible",days:"all"},
+ {time:"05:30",title:"Time for your morning strength workout",days:"week"},
+ {time:"06:15",title:"Time to shower and get ready",days:"week"},
+ {time:"06:45",title:"Prepare and eat breakfast",days:"week"},
+ {time:"07:15",title:"Focused Coratech POS development",days:"week"},
+ {time:"08:15",title:"Prepare for your sales work",days:"week"},
+ {time:"08:30",title:"Start Sales Job 1 customer calls",days:"week"},
+ {time:"10:30",title:"Take a short break",days:"week"},
+ {time:"10:45",title:"Sales Job 1 follow-ups",days:"week"},
+ {time:"12:30",title:"Time for lunch",days:"week"},
+ {time:"13:00",title:"Job 1 tasks and prepare US sales leads",days:"week"},
+ {time:"15:00",title:"Break and prepare your US leads",days:"week"},
+ {time:"15:15",title:"Time for US Sales Job 2 calls",days:"week"},
+ {time:"17:00",title:"Wrap up your work and final check-ins",days:"week"},
+ {time:"17:30",title:"Work is done. Rest and decompress",days:"week"},
+ {time:"18:00",title:"Coratech POS development time",days:"week"},
+ {time:"19:00",title:"Prepare and eat dinner",days:"week"},
+ {time:"19:30",title:"Time for your evening walk or stretching",days:"week"},
+ {time:"19:50",title:"Tidy up and prepare for tomorrow",days:"week"},
+ {time:"20:15",title:"Movie and personal free time",days:"week"},
+ {time:"21:30",title:"Time for night prayers and Bible reading",days:"all"},
+ {time:"21:45",title:"Bedtime preparation. Put your phone away",days:"all"},
+ {time:"22:00",title:"Time to sleep. Good night",days:"all"}
+];
+let alarms=JSON.parse(localStorage.getItem("formeAlarms")||"null")||defaults.map((a,i)=>({...a,id:i+1,enabled:true}));
+let firedKeys=new Set(), activeAlarm=null, audioCtx=null, ringInterval=null;
+const $=id=>document.getElementById(id);
+function save(){localStorage.setItem("formeAlarms",JSON.stringify(alarms))}
+function isDayAllowed(a,day){return a.days==="all"||(a.days==="week"&&day>=1&&day<=5)}
+function fmt(t){let [h,m]=t.split(":").map(Number);let suffix=h>=12?"PM":"AM";return `${(h%12)||12}:${String(m).padStart(2,"0")} ${suffix}`}
+function render(){
+ const list=$("alarmList");list.innerHTML="";
+ alarms.sort((a,b)=>a.time.localeCompare(b.time));
+ alarms.forEach(a=>{
+  const item=document.createElement("div");item.className="alarm"+(a.completedToday?" done":"");
+  const time=document.createElement("div");time.className="time";time.textContent=fmt(a.time);
+  const info=document.createElement("div");
+  const title=document.createElement("div");title.className="activity";title.textContent=a.title;
+  const note=document.createElement("div");note.className="note";note.textContent=(a.days==="week"?"Weekdays":"Every day")+(a.enabled?"":" • disabled");
+  info.append(title,note);
+  const controls=document.createElement("div");controls.style.display="flex";controls.style.gap="5px";
+  const edit=document.createElement("button");edit.className="secondary small";edit.textContent="Edit";edit.onclick=()=>editAlarm(a.id);
+  const toggle=document.createElement("button");toggle.className="secondary small";toggle.textContent=a.enabled?"On":"Off";toggle.onclick=()=>{a.enabled=!a.enabled;save();render()};
+  const del=document.createElement("button");del.className="secondary small";del.textContent="×";del.setAttribute("aria-label","Delete alarm");del.onclick=()=>{if(confirm("Delete this activity alarm?")){alarms=alarms.filter(x=>x.id!==a.id);save();render()}};
+  controls.append(edit,toggle,del);item.append(time,info,controls);list.append(item);
+ });
+}
+function editAlarm(id){
+ const a=alarms.find(x=>x.id===id);if(!a)return;
+ const time=prompt("Change time (24-hour format, e.g. 19:30):",a.time);if(time===null)return;
+ if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)){alert("Please enter a valid time like 19:30.");return}
+ const title=prompt("Change the spoken activity:",a.title);if(title===null)return;
+ a.time=time;a.title=title.trim()||a.title;a.completedToday=false;save();render();
+}
+$("addForm").onsubmit=e=>{e.preventDefault();const time=$("newTime").value,title=$("newTitle").value.trim();if(!title)return;alarms.push({id:Date.now(),time,title,days:$("newDays").checked?"week":"all",enabled:true});save();render();$("newTitle").value=""};
+$("resetBtn").onclick=()=>{if(confirm("Restore the original routine? This replaces your edits.")){alarms=defaults.map((a,i)=>({...a,id:i+1,enabled:true}));save();render()}};
+$("enableBtn").onclick=async()=>{
+ if("Notification" in window){try{const p=await Notification.requestPermission();$("permissionStatus").textContent=p==="granted"?"Notifications enabled":"Notification permission: "+p}catch(e){$("permissionStatus").textContent="Notifications unavailable"}}
+ else $("permissionStatus").textContent="This browser does not support notifications";
+ if("speechSynthesis" in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance("FORME routine assistant is ready. Your alarms are enabled.");speechSynthesis.speak(u)}
+};
+function speak(text){if($("voiceToggle").checked&&"speechSynthesis"in window){speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(text);u.rate=.92;u.pitch=1;speechSynthesis.speak(u)}}
+function soundStart(){
+ if(!$("soundToggle").checked)return;
+ try{audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)();audioCtx.resume();
+  const beep=()=>{if(!audioCtx)return;let o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type="sine";o.frequency.value=880;g.gain.value=.13;o.connect(g);g.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+.28)};
+  beep();ringInterval=setInterval(beep,850);
+ }catch(e){}
+}
+function soundStop(){if(ringInterval){clearInterval(ringInterval);ringInterval=null}if(audioCtx){audioCtx.close().catch(()=>{});audioCtx=null}}
+function trigger(a){
+ activeAlarm=a;$("ringTime").textContent=fmt(a.time);$("ringTitle").textContent=a.title;$("ringOverlay").style.display="flex";
+ soundStart();speak(a.title);
+ if($("notifToggle").checked&&"Notification"in window&&Notification.permission==="granted"){
+  try{new Notification("FORME Routine",{body:a.title,tag:"forme-"+a.id})}catch(e){}
+ }
+}
+function dismiss(done){soundStop();if("speechSynthesis"in window)speechSynthesis.cancel();$("ringOverlay").style.display="none";if(done&&activeAlarm){activeAlarm.completedToday=true;save();render()}activeAlarm=null}
+$("stopSoundBtn").onclick=()=>{soundStop();if("speechSynthesis"in window)speechSynthesis.cancel()};
+$("completeBtn").onclick=()=>dismiss(true);
+$("testBtn").onclick=()=>trigger({id:"test",time:new Date().toTimeString().slice(0,5),title:"Test alarm. Your routine assistant is working."});
+function tick(){
+ const now=new Date(),day=now.getDay(),hh=String(now.getHours()).padStart(2,"0"),mm=String(now.getMinutes()).padStart(2,"0"),key=`${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${hh}:${mm}`;
+ if(now.getHours()===0&&now.getMinutes()===0){alarms.forEach(a=>a.completedToday=false);firedKeys.clear();save();render()}
+ alarms.forEach(a=>{if(a.enabled&&isDayAllowed(a,day)&&a.time===`${hh}:${mm}`&&!firedKeys.has(key+"-"+a.id)){firedKeys.add(key+"-"+a.id);trigger(a)}});
+}
+if("Notification"in window&&Notification.permission==="granted")$("permissionStatus").textContent="Notifications already enabled";
+render();tick();setInterval(tick,15000);
+</script>
+</body>
+</html>
