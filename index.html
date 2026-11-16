@@ -65,6 +65,11 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:10px}
    <label class="switch"><input id="soundToggle" type="checkbox" checked> Ring alarm sound</label>
    <label class="switch"><input id="notifToggle" type="checkbox" checked> Browser notification</label>
   </div>
+  <div class="grid" style="margin-top:14px">
+   <div><label for="voiceStyle">Assistant voice</label><select id="voiceStyle"><option value="female">Female voice</option><option value="male">Male voice</option><option value="default">Device default voice</option></select></div>
+   <div style="display:flex;align-items:end"><button class="secondary" id="testVoiceBtn" type="button" style="width:100%">Test selected voice</button></div>
+  </div>
+  <p class="note" id="voiceStatus">Choose how you want FORME to speak. Available voices depend on your iPhone.</p>
   <p class="note" style="margin-top:12px">For this starter version, keep this page open and your phone/browser allowed to send notifications. Browser alarms may not fire reliably if the page is closed or the phone restricts background activity.</p>
  </section>
 
@@ -73,8 +78,9 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:10px}
   <form id="addForm" style="margin-top:12px">
    <div class="grid">
     <div><label for="newTime">Time</label><input id="newTime" type="time" required value="20:00"></div>
-    <div><label for="newTitle">Activity announcement</label><input id="newTitle" required placeholder="e.g. Time for your evening walk"></div>
+    <div><label for="newTitle">Activity name</label><input id="newTitle" required placeholder="e.g. Evening walk"></div>
    </div>
+   <div style="margin-top:10px"><label for="newMessage">What should FORME say? (optional)</label><input id="newMessage" placeholder="e.g. Hey baby, it's time for your evening walk."></div>
    <div class="row" style="margin-top:10px"><label class="switch"><input id="newDays" type="checkbox" checked> Weekdays (Mon–Fri)</label><button class="pink" type="submit">+ Add alarm</button></div>
   </form>
  </section>
@@ -99,8 +105,8 @@ footer{text-align:center;color:var(--muted);font-size:11px;padding:10px}
 </div>
 <script>
 const defaults=[
- {time:"05:15",title:"Wake up, pray and read the Bible",days:"all"},
- {time:"05:30",title:"Time for your morning strength workout",days:"week"},
+ {time:"05:15",title:"Wake up, pray and read the Bible",message:"Hey baby, it's 5:15 AM. Wake up and pray and read the Bible.",days:"all"},
+ {time:"05:30",title:"Time for your morning strength workout",message:"Hey baby, it's 5:30 AM. It's time to train. Get ready!",days:"week"},
  {time:"06:15",title:"Time to shower and get ready",days:"week"},
  {time:"06:45",title:"Prepare and eat breakfast",days:"week"},
  {time:"07:15",title:"Focused Coratech POS development",days:"week"},
@@ -150,10 +156,11 @@ function editAlarm(id){
  const a=alarms.find(x=>x.id===id);if(!a)return;
  const time=prompt("Change time (24-hour format, e.g. 19:30):",a.time);if(time===null)return;
  if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)){alert("Please enter a valid time like 19:30.");return}
- const title=prompt("Change the spoken activity:",a.title);if(title===null)return;
- a.time=time;a.title=title.trim()||a.title;a.completedToday=false;save();render();
+ const title=prompt("Activity name:",a.title);if(title===null)return;
+ const message=prompt("What should FORME say when this alarm rings?",a.message||a.title);if(message===null)return;
+ a.time=time;a.title=title.trim()||a.title;a.message=message.trim()||a.title;a.completedToday=false;save();render();
 }
-$("addForm").onsubmit=e=>{e.preventDefault();const time=$("newTime").value,title=$("newTitle").value.trim();if(!title)return;alarms.push({id:Date.now(),time,title,days:$("newDays").checked?"week":"all",enabled:true});save();render();$("newTitle").value=""};
+$("addForm").onsubmit=e=>{e.preventDefault();const time=$("newTime").value,title=$("newTitle").value.trim();if(!title)return;alarms.push({id:Date.now(),time,title,message:$("newMessage").value.trim()||title,days:$("newDays").checked?"week":"all",enabled:true});$("newMessage").value="";save();render();$("newTitle").value=""};
 $("resetBtn").onclick=()=>{if(confirm("Restore the original routine? This replaces your edits.")){alarms=defaults.map((a,i)=>({...a,id:i+1,enabled:true}));save();render()}};
 $("enableBtn").onclick=async()=>{
  // Start voice during the tap itself; iOS may block speech first requested after an awaited permission prompt.
@@ -168,7 +175,21 @@ $("enableBtn").onclick=async()=>{
   } catch (e) { $("permissionStatus").textContent = "Could not enable notifications. Open the installed app over HTTPS and try again."; }
  }
 };
-function speak(text){if($("voiceToggle").checked&&"speechSynthesis"in window){speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(text);u.rate=.92;u.pitch=1;speechSynthesis.speak(u)}}
+let availableVoices=[];
+const voiceStyle=$("voiceStyle");
+voiceStyle.value=localStorage.getItem("formeVoiceStyle")||"female";
+function loadVoices(){if(!("speechSynthesis"in window))return;availableVoices=speechSynthesis.getVoices()||[];if(availableVoices.length){$("voiceStatus").textContent=availableVoices.length+" voices available on this device. Choose male, female or device default.";}}
+if("speechSynthesis"in window){loadVoices();speechSynthesis.onvoiceschanged=loadVoices;}
+voiceStyle.onchange=()=>{localStorage.setItem("formeVoiceStyle",voiceStyle.value);};
+function selectedVoice(){
+ if(voiceStyle.value==="default")return null;
+ const female=/samantha|karen|moira|tessa|ava|zoe|victoria|susan|allison|siri.*female|female/i;
+ const male=/alex|daniel|fred|tom|rishi|aaron|jorge|thomas|siri.*male|male/i;
+ const pattern=voiceStyle.value==="female"?female:male;
+ return availableVoices.find(v=>pattern.test(v.name))||null;
+}
+function speak(text){if($("voiceToggle").checked&&"speechSynthesis"in window){speechSynthesis.cancel();let u=new SpeechSynthesisUtterance(text);u.rate=.92;u.pitch=1;const voice=selectedVoice();if(voice)u.voice=voice;else if(voiceStyle.value!=="default")$("voiceStatus").textContent="Your device did not expose a clearly labelled "+voiceStyle.value+" voice. FORME is using the device's default voice.";speechSynthesis.speak(u)}}
+$("testVoiceBtn").onclick=()=>{loadVoices();speak("Hey baby, this is your FORME assistant. Your selected voice is ready.");};
 function soundStart(){
  if(!$("soundToggle").checked)return;
  try{audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)();audioCtx.resume();
@@ -179,9 +200,9 @@ function soundStart(){
 function soundStop(){if(ringInterval){clearInterval(ringInterval);ringInterval=null}if(audioCtx){audioCtx.close().catch(()=>{});audioCtx=null}}
 async function trigger(a){
  activeAlarm=a;$("ringTime").textContent=fmt(a.time);$("ringTitle").textContent=a.title;$("ringOverlay").style.display="flex";
- soundStart();speak(a.title);
+ soundStart();speak(a.message||a.title);
  if($("notifToggle").checked&&"Notification"in window&&Notification.permission==="granted"){
-  try { if ("serviceWorker" in navigator) { const reg = await navigator.serviceWorker.ready; await reg.showNotification("FORME Routine", { body: a.title, tag: "forme-" + a.id, icon: "./icon.svg" }); } } catch(e) {}
+  try { if ("serviceWorker" in navigator) { const reg = await navigator.serviceWorker.ready; await reg.showNotification("FORME Routine", { body: a.message||a.title, tag: "forme-" + a.id, icon: "./icon.svg" }); } } catch(e) {}
  }
 }
 function dismiss(done){soundStop();if("speechSynthesis"in window)speechSynthesis.cancel();$("ringOverlay").style.display="none";if(done&&activeAlarm){activeAlarm.completedToday=true;save();render()}activeAlarm=null}
